@@ -1,4 +1,4 @@
-import { prisma } from '../src/services/database'
+import prisma from '../src/services/database/client'
 
 async function test() {
   const users = await prisma.user.findMany()
