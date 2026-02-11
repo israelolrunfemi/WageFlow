@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { z } from 'zod';
 // Define the schema for environment variables
-const envSchema = z.object({
+export const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     BOT_TOKEN: z.string().min(1, 'BOT_TOKEN is required'),
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
