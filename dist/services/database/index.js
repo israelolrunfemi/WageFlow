@@ -1,2 +1,2 @@
-export * from './client.js';
+export {};
 //# sourceMappingURL=index.js.map

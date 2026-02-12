@@ -7,4 +7,5 @@ if (!env.BOT_TOKEN) {
 export const bot = new Telegraf(env.BOT_TOKEN);
 // Register custom session middleware
 bot.use(sessionMiddleware);
+export default bot;
 //# sourceMappingURL=index.js.map

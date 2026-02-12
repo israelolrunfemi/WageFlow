@@ -1,28 +1,26 @@
 export type ConversationState =
-  'idle'
+  |'idle'
   | 'awaiting_company_name'
   | 'employee_name'
   | 'employee_wallet'
   | 'employee_salary'
+  | 'employee_currency'
   | 'await_pin'
-  |'await_new_pin';
+  | 'await_new_pin'
+  | null;
 
-export interface SessionData {
-  state: ConversationState;
-  pinVerified: boolean;       // tracks if PIN has been verified
-  pinAttempts?: number;     // counts PIN attempts
-  companyId?: number;
- 
-  employee?: {
-    name?: string;
-    wallet?: string;
-    salary?: number;
-  };
-newPin?:number; // temporarily holds new PIN during setup
-
-}
-export interface EmployeeDraft {
+export interface EmployeeData {
   name?: string;
   wallet?: string;
   salary?: number;
+  currency?: 'cUSD' | 'cEUR';
+}
+
+export interface SessionData {
+  state: ConversationState;
+  companyId?: number;
+  employee?: EmployeeData;
+  pin?: string;
+  pinVerified?: boolean;
+  pinAttempts?: number;
 }
