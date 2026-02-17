@@ -11,13 +11,13 @@ export class CallbackHandlers {
 
     switch (data) {
       case 'currency_cUSD':
-        return this.handleCurrencySelection(ctx, 'cUSD');
+        return CallbackHandlers.handleCurrencySelection(ctx, 'cUSD');
       case 'currency_cEUR':
-        return this.handleCurrencySelection(ctx, 'cEUR');
+        return CallbackHandlers.handleCurrencySelection(ctx, 'cEUR');
       case 'confirm_pay':
-        return this.handleConfirmPay(ctx);
+        return CallbackHandlers.handleConfirmPay(ctx);
       case 'cancel_pay':
-        return this.handleCancelPay(ctx);
+        return CallbackHandlers.handleCancelPay(ctx);
       default:
         await ctx.reply('Unknown action');
     }
