@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { env } from '../../config/env.js';
 import { Company, Employee } from '../database/index.js';
 import { buildSystemPrompt, buildUserPrompt, type PayrollContext } from './prompts.js';
@@ -9,13 +9,13 @@ interface EmployeeSnapshot {
   preferredCurrency: string;
 }
 
-const DEFAULT_MODEL = 'gemini-2.0-flash';
+const DEFAULT_MODEL = 'gemini-1.5-flash';
 
 export class WageFlowAIAgent {
-  private readonly client: GoogleGenAI | null;
+  private readonly client: GoogleGenerativeAI | null;
 
   constructor() {
-    this.client = env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }) : null;
+    this.client = env.GEMINI_API_KEY ? new GoogleGenerativeAI(env.GEMINI_API_KEY) : null;
   }
 
   isEnabled(): boolean {
@@ -26,17 +26,16 @@ export class WageFlowAIAgent {
     if (!this.client) return null;
 
     const context = await this.fetchPayrollContext(telegramId);
-    const response = await this.client.models.generateContent({
-      model: DEFAULT_MODEL,
-      contents: buildUserPrompt(userMessage, context),
-      config: {
-        systemInstruction: buildSystemPrompt(),
-        temperature: 0.5,
-        maxOutputTokens: 220,
-      },
-    });
+    const model = this.client.getGenerativeModel({ model: DEFAULT_MODEL });
 
-    return response.text?.trim() || null;
+    const result = await model.generateContent([
+      buildSystemPrompt(),
+      '\n\n',
+      buildUserPrompt(userMessage, context),
+    ]);
+
+    const text = result.response.text();
+    return text?.trim() || null;
   }
 
   private async fetchPayrollContext(telegramId: number): Promise<PayrollContext> {

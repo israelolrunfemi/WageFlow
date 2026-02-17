@@ -1,5 +1,5 @@
 import type { BotContext } from '../../types/bot.js';
-import { wageFlowAIAgent } from '../../services/ai/agent.js';
+import { wageFlowAIAgent } from '../../services/ai/index.js';
 import { ConversationHandlers } from './conversations.js';
 
 export class MessageHandlers {
