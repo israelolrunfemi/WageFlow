@@ -13,11 +13,19 @@ export class CallbackHandlers {
 
     switch (data) {
       case 'currency_cUSD':
+<<<<<<< HEAD
           return CallbackHandlers.handleCurrencySelection(ctx, 'cUSD');
       case 'currency_cEUR':
       return CallbackHandlers.handleCurrencySelection(ctx, 'cEUR');
       case 'confirm_pay':
        return CallbackHandlers.handleConfirmPay(ctx);
+=======
+        return CallbackHandlers.handleCurrencySelection(ctx, 'cUSD');
+      case 'currency_cEUR':
+        return CallbackHandlers.handleCurrencySelection(ctx, 'cEUR');
+      case 'confirm_pay':
+        return CallbackHandlers.handleConfirmPay(ctx);
+>>>>>>> 8a278438f555c00eae225d06765bc431219d4701
       case 'cancel_pay':
         return CallbackHandlers.handleCancelPay(ctx);
       default:
