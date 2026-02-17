@@ -4,6 +4,12 @@ import { Formatters } from '../utils/formatters.js';
 import { APP_NAME } from '../../config/constants.js';
 import { celoService } from '../../services/blockchain/celo.js';
 
+interface EmployeeSummary {
+  name: string;
+  salaryAmount: number | string;
+  preferredCurrency: string;
+}
+
 export class CommandHandlers {
   // /start command
   static async start(ctx: BotContext) {
@@ -215,7 +221,7 @@ export class CommandHandlers {
 
     let summary = '📊 Payroll Summary\n\n';
 
-    const byCurrency: Record<string, { employees: Employee[]; total: number }> = {};
+    const byCurrency: Record<string, { employees: EmployeeSummary[]; total: number }> = {};
 
     company.employees.forEach((emp) => {
       const currency = emp.preferredCurrency;
