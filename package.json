@@ -6,11 +6,6 @@
     "dev": "tsx watch src/main.ts",
     "build": "tsc",
     "start": "node dist/main.js",
-    "db:push": "prisma db push",
-    "db:generate": "prisma generate",
-    "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts",
-    "test:db": "tsx scripts/test-db.ts",
     "format": "prettier --write ."
   },
   "keywords": [],

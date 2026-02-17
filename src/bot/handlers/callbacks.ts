@@ -1,38 +1,41 @@
 import type { BotContext } from '../../types/bot.js';
 import { Company, Employee, Payment } from '../../services/database/index.js';
+import { celoService } from '../../services/blockchain/celo.js';
+import { NETWORK } from '../../config/constants.js';
+import type { BatchPaymentItem, Currency } from '../../types/blockchain.js';
 
 export class CallbackHandlers {
   static async handleCallback(ctx: BotContext) {
-    const callback = ctx.callbackQuery;
-    const data = callback && 'data' in callback ? (callback.data as string | undefined) : undefined;
+    const data = ctx.callbackQuery?.data;
     if (!data) return;
 
     await ctx.answerCbQuery();
 
     switch (data) {
       case 'currency_cUSD':
-        return this.handleCurrencySelection(ctx, 'cUSD');
+          return CallbackHandlers.handleCurrencySelection(ctx, 'cUSD');
       case 'currency_cEUR':
-        return this.handleCurrencySelection(ctx, 'cEUR');
+      return CallbackHandlers.handleCurrencySelection(ctx, 'cEUR');
       case 'confirm_pay':
-        return this.handleConfirmPay(ctx);
+       return CallbackHandlers.handleConfirmPay(ctx);
       case 'cancel_pay':
-        return this.handleCancelPay(ctx);
+        return CallbackHandlers.handleCancelPay(ctx);
       default:
-        await ctx.reply('Unknown action');
+        await ctx.reply('Unknown action. Please try again.');
     }
   }
 
-  private static async handleCurrencySelection(ctx: BotContext, currency: 'cUSD' | 'cEUR') {
+  // ── Currency Selection ────────────────────────────────────────────────────
+  private static async handleCurrencySelection(ctx: BotContext, currency: Currency) {
     const companyId = ctx.session.companyId;
     const employee = ctx.session.employee;
 
     if (!companyId || !employee?.name || !employee?.wallet || !employee?.salary) {
-      return ctx.editMessageText('❌ Session expired. Please try /add_employee again');
+      return ctx.editMessageText('❌ Session expired. Please run /add_employee again.');
     }
 
     const newEmployee = await Employee.create({
-      companyId: companyId,
+      companyId,
       name: employee.name,
       walletAddress: employee.wallet,
       salaryAmount: employee.salary,
@@ -40,25 +43,32 @@ export class CallbackHandlers {
     });
 
     await ctx.editMessageText(
-      `✅ Employee added!\n\n` +
-        `Name: ${newEmployee.name}\n` +
-        `Salary: ${newEmployee.salaryAmount} ${newEmployee.preferredCurrency}/month\n\n` +
-        'Add another employee: /add_employee\n' +
-        'Or pay everyone: /pay'
+      `✅ Employee Added!\n\n` +
+        `👤 Name   : ${newEmployee.name}\n` +
+        `💰 Salary : ${newEmployee.salaryAmount} ${newEmployee.preferredCurrency}/month\n` +
+        `💳 Wallet : ${celoService.shortenAddress(newEmployee.walletAddress)}\n\n` +
+        `➕ Add another: /add_employee\n` +
+        `💸 Pay team: /pay`
     );
 
+    // Reset session
     ctx.session.state = null;
     ctx.session.employee = undefined;
     ctx.session.companyId = undefined;
   }
 
+  // ── Confirm Payment ───────────────────────────────────────────────────────
   private static async handleConfirmPay(ctx: BotContext) {
     const telegramId = ctx.from?.id;
     if (!telegramId) return;
 
-    await ctx.editMessageText('⏳ Processing payments...\nThis may take a moment.');
+    // Update message to show processing
+    await ctx.editMessageText(
+      '⏳ Processing payroll...\n\nPlease wait while transactions are confirmed on Celo.'
+    );
 
     try {
+      // ── Get company and employees ────────────────────────────────────────
       const company = await Company.findOne({
         where: { telegramId: BigInt(telegramId) },
         include: [
@@ -71,51 +81,121 @@ export class CallbackHandlers {
         ],
       });
 
-      if (!company || !company.employees) {
-        return ctx.editMessageText('❌ Company not found');
+      if (!company) {
+        return ctx.editMessageText('❌ Company not found. Please run /start first.');
       }
 
-      let successCount = 0;
-      const results: Array<{ name: string; success: boolean; txHash?: string }> = [];
+      if (!company.employees || company.employees.length === 0) {
+        return ctx.editMessageText('❌ No active employees found. Add with /add_employee.');
+      }
 
-      for (const emp of company.employees) {
-        try {
-          const mockTxHash = `0x${Math.random().toString(16).substring(2, 66)}`;
+      // ── Check company wallet balance ─────────────────────────────────────
+      await ctx.editMessageText(
+        `⏳ Checking balances...\n\n` +
+          `Processing ${company.employees.length} employee(s).`
+      );
 
+      const balances = await celoService.getAllBalances();
+
+      // ── Build payments list ──────────────────────────────────────────────
+      const payments: BatchPaymentItem[] = company.employees.map((emp) => ({
+        employeeId: emp.id,
+        name: emp.name,
+        address: emp.walletAddress,
+        amount: emp.salaryAmount.toString(),
+        currency: emp.preferredCurrency as Currency,
+      }));
+
+      // ── Process payments ─────────────────────────────────────────────────
+      await ctx.editMessageText(
+        `💸 Sending payments...\n\n` +
+          `Processing ${payments.length} transaction(s) on Celo.\n` +
+          `This may take a moment.`
+      );
+
+      const results = await celoService.payBatch(payments);
+
+      // ── Save results to database ─────────────────────────────────────────
+      for (const result of results) {
+        if (result.success && result.txHash) {
           await Payment.create({
             companyId: company.id,
-            employeeId: emp.id,
-            amount: Number(emp.salaryAmount),
-            currency: emp.preferredCurrency,
-            txHash: mockTxHash,
+            employeeId: result.employeeId,
+            amount: parseFloat(result.amount),
+            currency: result.currency,
+            txHash: result.txHash,
             status: 'completed',
           });
 
-          results.push({ name: emp.name, success: true, txHash: mockTxHash });
-          successCount++;
-        } catch (error) {
-          console.error(`Failed to pay ${emp.name}:`, error);
-          results.push({ name: emp.name, success: false });
+          // ── Notify employee if they have Telegram ──────────────────────
+          const emp = company.employees.find((e) => e.id === result.employeeId);
+          if (emp?.telegramId) {
+            try {
+              await ctx.telegram.sendMessage(
+                emp.telegramId.toString(),
+                `💰 Payment Received!\n\n` +
+                  `From   : ${company.name}\n` +
+                  `Amount : ${result.amount} ${result.currency}\n\n` +
+                  `🔗 View transaction:\n${celoService.getTxLink(result.txHash)}`
+              );
+            } catch {
+              // Employee may not have started the bot
+            }
+          }
+        } else {
+          // Save failed payments too for records
+          await Payment.create({
+            companyId: company.id,
+            employeeId: result.employeeId,
+            amount: parseFloat(result.amount),
+            currency: result.currency,
+            txHash: 'failed',
+            status: 'failed',
+          });
         }
       }
 
-      let message = `✅ Payroll Complete!\n\n`;
-      message += `Successful: ${successCount}/${company.employees.length}\n\n`;
+      // ── Build summary message ────────────────────────────────────────────
+      const succeeded = results.filter((r) => r.success);
+      const failed = results.filter((r) => !r.success);
 
-      results.forEach((r) => {
-        message += r.success ? `✅ ${r.name}\n` : `❌ ${r.name} (failed)\n`;
-      });
+      let message = `📊 Payroll Complete!\n`;
+      message += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      message += `✅ Paid    : ${succeeded.length}/${results.length}\n`;
 
-      message += `\n💡 Note: This is a demo. Integrate Celo service for real payments.`;
+      if (failed.length > 0) {
+        message += `❌ Failed  : ${failed.length}/${results.length}\n`;
+      }
+
+      message += `\n👥 Results:\n`;
+
+      for (const result of results) {
+        if (result.success && result.txHash) {
+          message += `\n✅ ${result.name}\n`;
+          message += `   ${result.amount} ${result.currency}\n`;
+          message += `   🔗 ${celoService.getTxLink(result.txHash)}\n`;
+        } else {
+          message += `\n❌ ${result.name}\n`;
+          message += `   Error: ${result.error}\n`;
+        }
+      }
+
+      message += `\n━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      message += `📜 View history: /history`;
 
       await ctx.editMessageText(message);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payroll error:', error);
-      await ctx.editMessageText('❌ Payment failed. Please try again.');
+      await ctx.editMessageText(
+        `❌ Payroll failed\n\n` +
+          `Error: ${error.message}\n\n` +
+          `Please try again or check your wallet balance with /balance`
+      );
     }
   }
 
+  // ── Cancel Payment ────────────────────────────────────────────────────────
   private static async handleCancelPay(ctx: BotContext) {
-    await ctx.editMessageText('❌ Payment cancelled.');
+    await ctx.editMessageText('❌ Payroll cancelled. No payments were made.');
   }
 }
