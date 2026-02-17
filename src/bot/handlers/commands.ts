@@ -1,7 +1,8 @@
 import type { BotContext } from '../../types/bot.js';
-import { Company, Employee, Payment } from '../../services/database/index.js';
+import { Company, Employee } from '../../services/database/index.js';
 import { Formatters } from '../utils/formatters.js';
 import { APP_NAME } from '../../config/constants.js';
+import { celoService } from '../../services/blockchain/celo.js';
 
 export class CommandHandlers {
   // /start command
@@ -117,41 +118,73 @@ export class CommandHandlers {
 
   // /balance command
   static async checkBalance(ctx: BotContext) {
-    const telegramId = ctx.from?.id;
-    if (!telegramId) return;
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
 
-    const company = await Company.findOne({
-      where: { telegramId: BigInt(telegramId) },
-      include: [
-        {
-          model: Employee,
-          as: 'employees',
-          where: { status: 'active' },
-          required: false,
-        },
-      ],
+  const company = await Company.findOne({
+    where: { telegramId: BigInt(telegramId) },
+    include: [
+      {
+        model: Employee,
+        as: 'employees',
+        where: { status: 'active' },
+        required: false,
+      },
+    ],
+  });
+
+  if (!company) {
+    return ctx.reply('Set up your company first with /start');
+  }
+
+  await ctx.reply('⏳ Checking wallet balances...');
+
+  try {
+    // Get all balances
+    const walletAddress = celoService.getAddress();
+    const balances = await celoService.getAllBalances();
+
+    // Calculate total payroll
+    const totalPayroll = (company.employees || []).reduce(
+      (sum: number, emp: any) => sum + parseFloat(emp.salaryAmount),
+      0
+    );
+
+    // Calculate by currency
+    const byCurrency: Record<string, number> = {};
+    (company.employees || []).forEach((emp: any) => {
+      const c = emp.preferredCurrency;
+      byCurrency[c] = (byCurrency[c] || 0) + parseFloat(emp.salaryAmount);
     });
 
-    if (!company) {
-      return ctx.reply('Set up your company first: /start');
-    }
+    let message = `💰 Wallet Balance\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    message += `📍 Address: ${celoService.shortenAddress(walletAddress)}\n\n`;
 
-    if (!company.walletAddress) {
-      return ctx.reply('No wallet configured yet!');
-    }
+    message += `📊 Balances:\n`;
+    message += `   cUSD : ${parseFloat(balances.cUSD).toFixed(2)}\n`;
+    message += `   cEUR : ${parseFloat(balances.cEUR).toFixed(2)}\n`;
+    message += `   CELO : ${parseFloat(balances.CELO).toFixed(4)}\n\n`;
 
-    const totalPayroll =
-      company.employees?.reduce((sum, emp) => sum + Number(emp.salaryAmount), 0) || 0;
+    message += `📋 Payroll Required:\n`;
+    Object.entries(byCurrency).forEach(([currency, amount]) => {
+      const bal = currency === 'cUSD' ? balances.cUSD : balances.cEUR;
+      const isEnough = parseFloat(bal) >= amount;
+      message += `   ${currency}: ${amount.toFixed(2)} ${isEnough ? '✅' : '⚠️ Low'}\n`;
+    });
 
-    let message = '💰 Company Wallet\n\n';
-    message += `Address: ${Formatters.address(company.walletAddress)}\n\n`;
-    message += `Monthly payroll: ${Formatters.currency(totalPayroll, 'cUSD')}\n\n`;
-    message += `⚠️ Connect to Celo to check actual balance\n`;
-    message += `View on Celoscan:\n`;
-    message += `https://alfajores.celoscan.io/address/${company.walletAddress}`;
+    message += `\n🔗 View on Explorer:\n`;
+    message += `${celoService.getAddressLink(walletAddress)}`;
 
-    await ctx.reply(message, { parse_mode: 'Markdown' });
+    await ctx.reply(message);
+  } catch (error: any) {
+    console.error('Balance check error:', error);
+    await ctx.reply(
+      '❌ Could not fetch balance.\n\n' +
+        'Check your RPC connection and try again.'
+    );
   }
+}
 
   // /pay command
   static async pay(ctx: BotContext) {

@@ -18,8 +18,10 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google/genai": "^1.41.0",
     "@prisma/adapter-pg": "^7.3.0",
     "dotenv": "^17.2.4",
+    "ethers": "^6.16.0",
     "pg": "^8.18.0",
     "pg-hstore": "^2.3.4",
     "pino": "^10.3.1",

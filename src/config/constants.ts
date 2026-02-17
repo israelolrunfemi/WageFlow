@@ -1,5 +1,9 @@
-export const APP_NAME = 'WageFlow'
-export const TOKENS = {
+import type { TokenConfig } from '../types/blockchain.js';
+
+export const APP_NAME = 'WageFlow';
+
+// ─── Celo Token Addresses (Alfajores Testnet) ─────────────────────────────────
+export const TOKENS: Record<string, TokenConfig> = {
   cUSD: {
     address: '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1',
     decimals: 18,
@@ -12,18 +16,36 @@ export const TOKENS = {
     symbol: 'cEUR',
     name: 'Celo Euro',
   },
-} as const
+};
 
-export type TokenSymbol = keyof typeof TOKENS
-export type TokenConfig = (typeof TOKENS)[TokenSymbol]
+// ─── ERC-20 ABI ───────────────────────────────────────────────────────────────
+export const ERC20_ABI = [
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)',
+  'function name() view returns (string)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+];
 
+// ─── Network ──────────────────────────────────────────────────────────────────
+export const NETWORK = {
+  NAME: 'Alfajores Testnet',
+  CHAIN_ID: 44787,
+  RPC_URL: 'https://alfajores-forno.celo-testnet.org',
+  EXPLORER_URL: 'https://alfajores.celoscan.io',
+  FAUCET_URL: 'https://faucet.celo.org',
+} as const;
+
+// ─── Bot Commands ─────────────────────────────────────────────────────────────
 export const COMMANDS = {
   START: 'start',
-  HELP: 'help',
-  BALANCE: 'balance',
-  EMPLOYEES: 'employees',
   ADD_EMPLOYEE: 'add_employee',
+  EMPLOYEES: 'employees',
   PAY: 'pay',
-} as const
-
-export type Command = typeof COMMANDS[keyof typeof COMMANDS]
+  BALANCE: 'balance',
+  HISTORY: 'history',
+  HELP: 'help',
+} as const;

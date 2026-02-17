@@ -15,14 +15,14 @@ async function main() {
   await connectDatabase();
 
   // Check counts
-  // const companies = await Company.count();
-  // const employees = await Employee.count();
-  // const payments = await Payment.count();
+  const companies = await Company.count();
+  const employees = await Employee.count();
+  const payments = await Payment.count();
 
   console.log('📊 Database Status:');
-  // console.log(`   Companies: ${companies}`);
-  // console.log(`   Employees: ${employees}`);
-  // console.log(`   Payments: ${payments}\n`);
+  console.log(`   Companies: ${companies}`);
+  console.log(`   Employees: ${employees}`);
+  console.log(`   Payments: ${payments}\n`);
 
   // Check bot token
   if (!env.BOT_TOKEN) {

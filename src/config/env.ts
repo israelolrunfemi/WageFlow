@@ -11,7 +11,7 @@ export const envSchema = z.object({
 
   CELO_RPC_URL: z.string().optional(),
   PRIVATE_KEY: z.string().optional(),
-  MISTRAL_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
