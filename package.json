@@ -6,7 +6,8 @@
     "dev": "tsx watch src/main.ts",
     "build": "tsc",
     "start": "node dist/main.js",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "start:prod": "npm run build && npm start"
   },
   "keywords": [],
   "author": "",
