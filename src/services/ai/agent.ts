@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { env } from '../../config/env.js';
 import { Company, Employee } from '../database/index.js';
 import { buildSystemPrompt, buildUserPrompt, type PayrollContext } from './prompts.js';
@@ -9,13 +9,18 @@ interface EmployeeSnapshot {
   preferredCurrency: string;
 }
 
-const DEFAULT_MODEL = 'gemini-2.0-flash';
+const DEFAULT_MODEL = env.GEMINI_MODEL || 'gemini-2.0-flash';
+const FALLBACK_MODELS = [DEFAULT_MODEL, 'gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash'];
+
+function uniqueModels(models: string[]): string[] {
+  return [...new Set(models.filter(Boolean))];
+}
 
 export class WageFlowAIAgent {
-  private readonly client: GoogleGenAI | null;
+  private readonly client: GoogleGenerativeAI | null;
 
   constructor() {
-    this.client = env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }) : null;
+    this.client = env.GEMINI_API_KEY ? new GoogleGenerativeAI(env.GEMINI_API_KEY) : null;
   }
 
   isEnabled(): boolean {
@@ -26,17 +31,36 @@ export class WageFlowAIAgent {
     if (!this.client) return null;
 
     const context = await this.fetchPayrollContext(telegramId);
-    const response = await this.client.models.generateContent({
-      model: DEFAULT_MODEL,
-      contents: buildUserPrompt(userMessage, context),
-      config: {
-        systemInstruction: buildSystemPrompt(),
-        temperature: 0.5,
-        maxOutputTokens: 220,
-      },
-    });
+    const prompt = buildUserPrompt(userMessage, context);
 
-    return response.text?.trim() || null;
+    for (const modelName of uniqueModels(FALLBACK_MODELS)) {
+      try {
+        const model = this.client.getGenerativeModel({
+          model: modelName,
+          systemInstruction: buildSystemPrompt(),
+        });
+
+        const response = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.5,
+            maxOutputTokens: 220,
+          },
+        });
+
+        const text = response.response.text().trim();
+        if (text) return text;
+      } catch (error: any) {
+        const status = error?.status;
+        if (status === 404) {
+          console.warn(`Gemini model unavailable: ${modelName}. Trying fallback model...`);
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    return null;
   }
 
   private async fetchPayrollContext(telegramId: number): Promise<PayrollContext> {
