@@ -31,6 +31,7 @@ export class WageFlowAIAgent {
     if (!this.client) return null;
 
     const context = await this.fetchPayrollContext(telegramId);
+
     const prompt = buildUserPrompt(userMessage, context);
 
     for (const modelName of uniqueModels(FALLBACK_MODELS)) {
@@ -61,6 +62,22 @@ export class WageFlowAIAgent {
     }
 
     return null;
+
+    const model = this.client.getGenerativeModel({
+      model: DEFAULT_MODEL,
+      systemInstruction: buildSystemPrompt(),
+    });
+
+    const response = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: buildUserPrompt(userMessage, context) }] }],
+      generationConfig: {
+        temperature: 0.5,
+        maxOutputTokens: 220,
+      },
+    });
+
+    return response.response.text().trim() || null;
+
   }
 
   private async fetchPayrollContext(telegramId: number): Promise<PayrollContext> {
