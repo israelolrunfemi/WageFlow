@@ -215,7 +215,7 @@ export class CommandHandlers {
 
     let summary = '📊 Payroll Summary\n\n';
 
-    const byCurrency: Record<string, { employees: Employee[]; total: number }> = {};
+    const byCurrency: Record<string, { employees: InstanceType<typeof Employee>[]; total: number }> = {};
 
     company.employees.forEach((emp) => {
       const currency = emp.preferredCurrency;

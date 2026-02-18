@@ -6,7 +6,7 @@ import type { BatchPaymentItem, Currency } from '../../types/blockchain.js';
 
 export class CallbackHandlers {
   static async handleCallback(ctx: BotContext) {
-    const data = ctx.callbackQuery?.data;
+    const data = (ctx.callbackQuery as any)?.data;
     if (!data) return;
 
     await ctx.answerCbQuery();
