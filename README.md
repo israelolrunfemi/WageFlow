@@ -38,6 +38,14 @@ npm install
 ### 2. Configure Environment
 Edit `.env` with your credentials
 
+### 2.1 Configure AI (optional but recommended)
+Add Gemini credentials in `.env`:
+```bash
+GEMINI_API_KEY=your_api_key
+GEMINI_MODEL=gemini-2.0-flash
+```
+If a model is unavailable for your account, WageFlow automatically falls back to supported Gemini Flash models.
+
 ### 3. Setup Database
 ```bash
 createdb Wageflow
