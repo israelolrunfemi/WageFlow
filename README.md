@@ -56,6 +56,10 @@ createdb Wageflow
 npm run dev
 ```
 
+### AI Troubleshooting
+- If you see `429 Too Many Requests` / quota errors, your Gemini project has hit limits. Wait for the retry window or enable billing/increase quota in Google AI Studio.
+- If you see `404 model not found`, set `GEMINI_MODEL` in `.env` to a model available to your account.
+
 ## 📱 Bot Commands
 
 - `/start` - Welcome & main menu

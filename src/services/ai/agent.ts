@@ -63,6 +63,8 @@ export class WageFlowAIAgent {
 
     return null;
 
+    return null;
+
     const model = this.client.getGenerativeModel({
       model: DEFAULT_MODEL,
       systemInstruction: buildSystemPrompt(),

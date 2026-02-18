@@ -2,6 +2,18 @@ import type { BotContext } from '../../types/bot.js';
 import { wageFlowAIAgent } from '../../services/ai/agent.js';
 import { ConversationHandlers } from './conversations.js';
 
+function getRetryDelaySeconds(error: any): string | null {
+  const details = error?.errorDetails;
+  if (!Array.isArray(details)) return null;
+
+  const retryInfo = details.find((detail: any) => detail?.['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
+  const retryDelay = retryInfo?.retryDelay as string | undefined;
+  if (!retryDelay) return null;
+
+  const seconds = Number.parseInt(retryDelay.replace('s', ''), 10);
+  return Number.isFinite(seconds) ? String(seconds) : null;
+}
+
 export class MessageHandlers {
   // Route text messages to appropriate handler
   static async handleText(ctx: BotContext) {
@@ -30,8 +42,23 @@ export class MessageHandlers {
           await ctx.reply(aiReply);
           return;
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('AI response error:', error);
+
+        if (error?.status === 429) {
+          const retrySeconds = getRetryDelaySeconds(error);
+          await ctx.reply(
+            retrySeconds
+              ? `⏳ AI is rate-limited right now. Please try again in about ${retrySeconds}s.`
+              : '⏳ AI is rate-limited right now. Please try again in a short while.'
+          );
+          return;
+        }
+
+        if (error?.status === 401 || error?.status === 403) {
+          await ctx.reply('⚠️ AI is temporarily unavailable due to an API key or billing configuration issue.');
+          return;
+        }
       }
     }
 
