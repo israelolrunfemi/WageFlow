@@ -9,12 +9,15 @@ interface EmployeeSnapshot {
   preferredCurrency: string;
 }
 
+
+
 const DEFAULT_MODEL = env.GEMINI_MODEL || 'gemini-2.0-flash';
 const FALLBACK_MODELS = [DEFAULT_MODEL, 'gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash'];
 
 function uniqueModels(models: string[]): string[] {
   return [...new Set(models.filter(Boolean))];
 }
+
 
 export class WageFlowAIAgent {
   private readonly client: GoogleGenerativeAI | null;
@@ -31,6 +34,7 @@ export class WageFlowAIAgent {
     if (!this.client) return null;
 
     const context = await this.fetchPayrollContext(telegramId);
+
 
     const prompt = buildUserPrompt(userMessage, context);
 
@@ -62,24 +66,6 @@ export class WageFlowAIAgent {
     }
 
     return null;
-
-    return null;
-
-    const model = this.client.getGenerativeModel({
-      model: DEFAULT_MODEL,
-      systemInstruction: buildSystemPrompt(),
-    });
-
-    const response = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: buildUserPrompt(userMessage, context) }] }],
-      generationConfig: {
-        temperature: 0.5,
-        maxOutputTokens: 220,
-      },
-    });
-
-    return response.response.text().trim() || null;
-
   }
 
   private async fetchPayrollContext(telegramId: number): Promise<PayrollContext> {
