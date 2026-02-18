@@ -99,5 +99,6 @@ npm run dev
 - Security-first approach
 
 ---
+## I couldn't verify on selfclaw
 
 <!-- **MIT License** | Built for Blockchain Hackathon 2026 -->
